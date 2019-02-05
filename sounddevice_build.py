@@ -5,6 +5,14 @@ ffibuilder.set_source("_sounddevice", None)
 ffibuilder.cdef("""
 int Pa_GetVersion( void );
 const char* Pa_GetVersionText( void );
+typedef struct PaVersionInfo {
+    int versionMajor;
+    int versionMinor;
+    int versionSubMinor;
+    const char *versionControlRevision;
+    const char *versionText;
+} PaVersionInfo;
+const PaVersionInfo* Pa_GetVersionInfo();
 typedef int PaError;
 typedef enum PaErrorCode
 {
@@ -87,6 +95,9 @@ const PaHostErrorInfo* Pa_GetLastHostErrorInfo( void );
 PaDeviceIndex Pa_GetDeviceCount( void );
 PaDeviceIndex Pa_GetDefaultInputDevice( void );
 PaDeviceIndex Pa_GetDefaultOutputDevice( void );
+PaError Pa_RefreshDeviceList( void );
+typedef void PaDevicesChangedCallback( void *userData );
+PaError Pa_SetDevicesChangedCallback( void *userData, PaDevicesChangedCallback* devicesChangedCallback );
 typedef double PaTime;
 typedef unsigned long PaSampleFormat;
 #define paFloat32        0x00000001
@@ -97,6 +108,7 @@ typedef unsigned long PaSampleFormat;
 #define paUInt8          0x00000020
 #define paCustomFormat   0x00010000
 #define paNonInterleaved 0x80000000
+typedef unsigned long PaDeviceConnectionId;
 typedef struct PaDeviceInfo
 {
     int structVersion;
@@ -109,6 +121,7 @@ typedef struct PaDeviceInfo
     PaTime defaultHighInputLatency;
     PaTime defaultHighOutputLatency;
     double defaultSampleRate;
+    PaDeviceConnectionId connectionId;
 } PaDeviceInfo;
 const PaDeviceInfo* Pa_GetDeviceInfo( PaDeviceIndex device );
 typedef struct PaStreamParameters
@@ -217,6 +230,8 @@ typedef struct
 void PaMacCore_SetupStreamInfo( PaMacCoreStreamInfo *data, unsigned long flags );
 void PaMacCore_SetupChannelMap( PaMacCoreStreamInfo *data, const SInt32 * const channelMap, unsigned long channelMapSize );
 const char *PaMacCore_GetChannelName( int device, int channelIndex, bool input );
+PaError PaMacCore_GetBufferSizeRange( PaDeviceIndex device,
+                                       long *minBufferSizeFrames, long *maxBufferSizeFrames );
 #define paMacCoreChangeDeviceParameters 0x01
 #define paMacCoreFailIfConversionRequired 0x02
 #define paMacCoreConversionQualityMin    0x0100
@@ -236,7 +251,6 @@ typedef unsigned long PaWinWaveFormatChannelMask;
 /* pa_asio.h */
 
 #define paAsioUseChannelSelectors 0x01
-
 typedef struct PaAsioStreamInfo
 {
     unsigned long size;
@@ -260,7 +274,73 @@ typedef enum PaWasapiFlags
 typedef void (*PaWasapiHostProcessorCallback) (
     void *inputBuffer,  long inputFrames,
     void *outputBuffer, long outputFrames, void *userData);
-
+typedef enum PaWasapiDeviceRole
+{
+    eRoleRemoteNetworkDevice = 0,
+    eRoleSpeakers,
+    eRoleLineLevel,
+    eRoleHeadphones,
+    eRoleMicrophone,
+    eRoleHeadset,
+    eRoleHandset,
+    eRoleUnknownDigitalPassthrough,
+    eRoleSPDIF,
+    eRoleHDMI,
+    eRoleUnknownFormFactor
+}
+PaWasapiDeviceRole;
+typedef enum PaWasapiJackConnectionType
+{
+    eJackConnTypeUnknown,
+    eJackConnType3Point5mm,
+    eJackConnTypeQuarter,
+    eJackConnTypeAtapiInternal,
+    eJackConnTypeRCA,
+    eJackConnTypeOptical,
+    eJackConnTypeOtherDigital,
+    eJackConnTypeOtherAnalog,
+    eJackConnTypeMultichannelAnalogDIN,
+    eJackConnTypeXlrProfessional,
+    eJackConnTypeRJ11Modem,
+    eJackConnTypeCombination
+}
+PaWasapiJackConnectionType;
+typedef enum PaWasapiJackGeoLocation
+{
+    eJackGeoLocUnk = 0,
+    eJackGeoLocRear = 0x1,
+    eJackGeoLocFront,
+    eJackGeoLocLeft,
+    eJackGeoLocRight,
+    eJackGeoLocTop,
+    eJackGeoLocBottom,
+    eJackGeoLocRearPanel,
+    eJackGeoLocRiser,
+    eJackGeoLocInsideMobileLid,
+    eJackGeoLocDrivebay,
+    eJackGeoLocHDMI,
+    eJackGeoLocOutsideMobileLid,
+    eJackGeoLocATAPI,
+    eJackGeoLocReserved5,
+    eJackGeoLocReserved6,
+}
+PaWasapiJackGeoLocation;
+typedef enum PaWasapiJackGenLocation
+{
+    eJackGenLocPrimaryBox = 0,
+    eJackGenLocInternal,
+    eJackGenLocSeparate,
+    eJackGenLocOther
+}
+PaWasapiJackGenLocation;
+typedef enum PaWasapiJackPortConnection
+{
+    eJackPortConnJack = 0,
+    eJackPortConnIntegratedDevice,
+    eJackPortConnBothIntegratedAndJack,
+    eJackPortConnUnknown
+}
+PaWasapiJackPortConnection;
 typedef enum PaWasapiThreadPriority
 {
     eThreadPriorityNone = 0,
@@ -272,7 +352,17 @@ typedef enum PaWasapiThreadPriority
     eThreadPriorityProAudio,
     eThreadPriorityWindowManager
 } PaWasapiThreadPriority;
-
+typedef struct PaWasapiJackDescription
+{
+    unsigned long channelMapping;
+    unsigned long color;
+    PaWasapiJackConnectionType connectionType;
+    PaWasapiJackGeoLocation geoLocation;
+    PaWasapiJackGenLocation genLocation;
+    PaWasapiJackPortConnection portConnection;
+    unsigned int isConnected;
+}
+PaWasapiJackDescription;
 typedef enum PaWasapiStreamCategory
 {
     eAudioCategoryOther           = 0,
@@ -286,14 +376,12 @@ typedef enum PaWasapiStreamCategory
     eAudioCategoryMovie           = 10,
     eAudioCategoryMedia           = 11
 } PaWasapiStreamCategory;
-
 typedef enum PaWasapiStreamOption
 {
     eStreamOptionNone        = 0,
     eStreamOptionRaw         = 1,
     eStreamOptionMatchFormat = 2
 } PaWasapiStreamOption;
-
 typedef struct PaWasapiStreamInfo
 {
     unsigned long size;
@@ -307,6 +395,13 @@ typedef struct PaWasapiStreamInfo
     PaWasapiStreamCategory streamCategory;
     PaWasapiStreamOption streamOption;
 } PaWasapiStreamInfo;
+int PaWasapi_GetDeviceDefaultFormat( void *pFormat, unsigned int nFormatSize, PaDeviceIndex nDevice );
+int PaWasapi_GetDeviceRole( PaDeviceIndex nDevice );
+PaError PaWasapi_ThreadPriorityBoost( void **hTask, PaWasapiThreadPriority nPriorityClass );
+PaError PaWasapi_ThreadPriorityRevert( void *hTask );
+PaError PaWasapi_GetFramesPerHostBuffer( PaStream *pStream, unsigned int *nInput, unsigned int *nOutput );
+PaError PaWasapi_GetJackCount(PaDeviceIndex nDevice, int *jcount);
+PaError PaWasapi_GetJackDescription(PaDeviceIndex nDevice, int jindex, PaWasapiJackDescription *pJackDescription);
 """)
 
 ffibuilder.cdef("""
