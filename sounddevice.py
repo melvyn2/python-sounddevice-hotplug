@@ -486,7 +486,7 @@ def query_devices(device=None, kind=None):
     info = _lib.Pa_GetDeviceInfo(device)
     if not info:
         raise PortAudioError('Error querying device {0}'.format(device))
-    assert info.structVersion == 2
+    assert info.structVersion == 3
     name_bytes = _ffi.string(info.name)
     try:
         # We don't know beforehand if DirectSound and MME device names use
