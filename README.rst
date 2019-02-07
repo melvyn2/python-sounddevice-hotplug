@@ -1,3 +1,10 @@
+About this fork
+===============
+• This fork was not made to be merged, as the portaudio branch it relies on isn't merged
+• This fork adds:
+    - a function to refresh device lists without interupting current streams
+    - a callback that is triggered when a device is added or removed
+
 Play and Record Sound with Python
 =================================
 
