@@ -371,6 +371,51 @@ def get_stream():
         raise RuntimeError('play()/rec()/playrec() was not called yet')
 
 
+def refresh_device_list():
+    """Refresh the device list fully without interupting streams.
+
+    Be aware that this might change some device indexes,
+    so make sure to check if your current indexes still match.
+    """
+
+    _lib.Pa_RefreshDeviceList()
+
+
+def set_device_changed_callback(callback=None):
+    """Sets a function to be called whenever a device is added or removed.
+
+    The callback being called does NOT mean that the device list has changed.
+    You must call ``refresh_device_list()`` for the list to be updated.
+
+    Parameters
+    ----------
+    callback : function, optional
+        Function to be called on device status change.
+
+    Notes
+    -----
+    Unless you are generating a function from another, don't
+    forget to remove the parentheses!
+
+    This won't work correctly:
+
+    >>> sd.set_device_changed_callback(my_function())
+
+    This should:
+
+    >>> sd.set_device_changed_callback(my_function)
+    """
+    if callback:
+        @_ffi.callback('void(*)(void *)')
+        def generated_callback(_):
+            callback()
+
+        _lib.Pa_SetDevicesChangedCallback(_ffi.NULL, _ffi.NULL)
+        _lib.Pa_SetDevicesChangedCallback(generated_callback, generated_callback)
+    else:
+        _lib.Pa_SetDevicesChangedCallback(_ffi.NULL, _ffi.NULL)
+
+
 def query_devices(device=None, kind=None):
     """Return information about available devices.
 
