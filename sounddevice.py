@@ -71,7 +71,9 @@ try:
         raise OSError('PortAudio library not found')
     _lib = _ffi.dlopen(_libname)
 except OSError:
-    if _platform.system() == 'Darwin':
+    if _platform.system() == 'Linux':
+        _libname = 'libportaudio.so'
+    elif _platform.system() == 'Darwin':
         _libname = 'libportaudio.dylib'
     elif _platform.system() == 'Windows':
         _libname = 'libportaudio' + _platform.architecture()[0] + '.dll'
